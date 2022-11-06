@@ -1,5 +1,5 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#ifndef DISPATCHER_H
+#define DISPATCHER_H
 
 #include <QWidget>
 #include <QPushButton>
@@ -47,4 +47,4 @@ private:
     QTimer* timer;
     int msec_for_update = 1000;
 };
-#endif // MAINWINDOW_H
+#endif // DISPATCHER_H
