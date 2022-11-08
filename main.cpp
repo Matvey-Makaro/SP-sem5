@@ -45,7 +45,7 @@ void fill_file_random_async(const std::wstring& fName, int amount, int max_numbe
         
     }
 
-    WaitForSingleObject(h_end_write, INFINITE);
+    WaitForSingleObjectEx(h_end_write, INFINITE, TRUE);
     ovrl.Offset += sizeof(num);
   }
 
@@ -95,7 +95,7 @@ std::vector<int> read_file_async(const std::wstring& fName)
       }
     }
 
-    WaitForSingleObject(h_end_read, INFINITE);
+    WaitForSingleObjectEx(h_end_read, INFINITE, TRUE);
     ovrl.Offset += sizeof(buff);
     result.push_back(buff);
   }
@@ -140,7 +140,7 @@ void write_file_async(const std::wstring& fName, const std::vector<int>& vec)
 
     }
 
-    WaitForSingleObject(h_end_write, INFINITE);
+    WaitForSingleObjectEx(h_end_write, INFINITE, TRUE);
     ovrl.Offset += sizeof(num);
   }
 
