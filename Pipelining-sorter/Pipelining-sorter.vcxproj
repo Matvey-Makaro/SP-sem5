@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{bc5cba53-5af8-44c6-a583-24e8e2ea0aea}</ProjectGuid>
-    <RootNamespace>Pipelining</RootNamespace>
+    <ProjectGuid>{b3c1db17-af7d-4d8a-9bec-4f049aa44cad}</ProjectGuid>
+    <RootNamespace>Pipeliningsorter</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
