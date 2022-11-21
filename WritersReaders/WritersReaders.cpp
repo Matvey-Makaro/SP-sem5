@@ -13,13 +13,13 @@ DWORD WINAPI runFunction(PVOID pvParam)
 {
   TCHAR sz[50];
   wsprintf(sz, TEXT("SWMRGuard Test: Thread %d"), PtrToShort(pvParam));
-  int n = MessageBox(NULL, TEXT("YES: Attempt to reader\nNo: Attempt to write"), sz, MB_YESNO);
+  int n = MessageBox(NULL, TEXT("Да - читатель\nНет - писатель"), sz, MB_YESNO);
 
   if (n == IDYES)
     swmrGuard.waitToRead();
   else swmrGuard.waitToWrite();
 
-  MessageBox(NULL, (n == IDYES) ? TEXT("OK stops READING") : TEXT("OK stops WRITING"), sz, MB_OK);
+  MessageBox(NULL, (n == IDYES) ? TEXT("Ок для прекращения чтения") : TEXT("Ок для прекращения записи"), sz, MB_OK);
 
   swmrGuard.done();
   return 0;
