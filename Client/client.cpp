@@ -22,23 +22,16 @@ int main(int argc, char* argv[])
   addr.sin_port = htons(1111);
   addr.sin_family = AF_INET;
 
-  SOCKET sListen = socket(AF_INET, SOCK_STREAM, NULL);
-  bind(sListen, (SOCKADDR*)&addr, sizeofaddr);
-  listen(sListen, SOMAXCONN);
-
-  SOCKET newConnection;
-  newConnection = accept(sListen, (SOCKADDR*)&addr, &sizeofaddr);
-  if (newConnection == 0)
+  SOCKET connection = socket(AF_INET, SOCK_STREAM, NULL);
+  if (connect(connection, (SOCKADDR*)&addr, sizeof(addr)) != 0)
   {
-    cerr << "Error accept new connection!" << endl;
-    return -2;
+    cerr << "Error connect!" << endl;
+      return 1;
   }
-  
-  cout << "Client connected!\n";
-  char msg[256] = "Hello, client!";
-  send(newConnection, msg, sizeof(msg), NULL);
 
-
+  cout << "Connected!\n";
+  char msg[256];
+  recv(connection, msg, sizeof(msg), NULL);
   system("pause");
   return 0;
 }
