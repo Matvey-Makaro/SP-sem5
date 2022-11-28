@@ -48,7 +48,7 @@ void Server::init()
   WSAData wsaData;
   WORD DLLVersion = MAKEWORD(2, 1);
   if (WSAStartup(DLLVersion, &wsaData) != 0)
-    throw std::runtime_error("WSAStartup failed!");
+    throw runtime_error("WSAStartup failed!");
 }
 
 void Server::fillAddr()
@@ -137,21 +137,23 @@ void Server::clientHandler(SOCKET currConnection)
   std::cout << "Client handler!" << std::endl;
 
   clientNameHandler(currConnection);
-
-  PacketType packetType = getPacketType(currConnection);
-  string receiverName;
-  switch (packetType)
+  
+  while (true)
   {
-  case PT_ReceiverName:
-    receiverName = receiverNameHandler(currConnection);
-    break;
-  case PT_ChatMessage:
-    chatMessageHandler(currConnection, receiverName);
-    break;
-  default:
-    cerr << "Unknown packet type" << endl;
-    // return -5;
-    break;
+    PacketType packetType = getPacketType(currConnection);
+    string receiverName;
+    switch (packetType)
+    {
+    case PT_ReceiverName:
+      receiverName = receiverNameHandler(currConnection);
+      break;
+    case PT_ChatMessage:
+      chatMessageHandler(currConnection, receiverName);
+      break;
+    default:
+      cerr << "Unknown packet type" << endl;
+      break;
+    }
   }
 }
 
