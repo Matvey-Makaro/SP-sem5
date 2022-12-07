@@ -43,6 +43,8 @@ private:
   ServerAnswers getServerAnswer();
   void sendString(const std::string& str);
   std::string getString();
+  void recv_s(SOCKET s, char* buf, int len, int flags = NULL);
+  void send_s(SOCKET s, const char* buf, int len, int flags = NULL);
 
 private:
   SOCKADDR_IN addr;

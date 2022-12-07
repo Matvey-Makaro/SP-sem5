@@ -17,6 +17,14 @@ void Client::start()
   mainLoop();
 }
 
+void Client::init()
+{
+  WSAData wsaData;
+  WORD DLLVersion = MAKEWORD(2, 1);
+  if (WSAStartup(DLLVersion, &wsaData) != 0)
+    throw runtime_error("WSAStartup failed!");
+}
+
 void Client::fillAddr()
 {
   addr.sin_addr.s_addr = inet_addr("127.0.0.1");
@@ -120,33 +128,33 @@ void Client::mainLoop()
 
 void Client::sendPacketType(PacketType packetType)
 {
-  send(connection, reinterpret_cast<const char*>(&packetType), sizeof(packetType), NULL);
+  send_s(connection, reinterpret_cast<const char*>(&packetType), sizeof(packetType));
 }
 
 PacketType Client::getPacketType()
 {
   PacketType packetType;
-  recv(connection, reinterpret_cast<char*>(&packetType), sizeof(packetType), NULL);
+  recv_s(connection, reinterpret_cast<char*>(&packetType), sizeof(packetType));
   return packetType;
 }
 
 void Client::sendAnswer(ClientAnswers answer)
 {
-  send(connection, reinterpret_cast<const char*>(&answer), sizeof(answer), NULL);
+  send_s(connection, reinterpret_cast<const char*>(&answer), sizeof(answer));
 }
 
 ServerAnswers Client::getServerAnswer()
 {
   ServerAnswers answer;
-  recv(connection, reinterpret_cast<char*>(&answer), sizeof(answer), NULL);
+  recv_s(connection, reinterpret_cast<char*>(&answer), sizeof(answer));
   return answer;
 }
 
 void Client::sendString(const string& str)
 {
   int size = str.size();
-  send(connection, reinterpret_cast<const char*>(&size), sizeof(size), NULL);
-  send(connection, str.c_str(), size, NULL);
+  send_s(connection, reinterpret_cast<const char*>(&size), sizeof(size));
+  send_s(connection, str.c_str(), size);
 }
 
 string Client::getString()
@@ -154,7 +162,7 @@ string Client::getString()
   constexpr int bufferSize = 1024;
   char buffer[bufferSize];
   int strSize = 0;
-  recv(connection, reinterpret_cast<char*>(&strSize), sizeof(strSize), NULL);
+  recv_s(connection, reinterpret_cast<char*>(&strSize), sizeof(strSize));
   if (strSize <= 0)
     throw runtime_error("Size of string <= 0.");
 
@@ -169,15 +177,21 @@ string Client::getString()
 
   result_buffer[strSize] = '\0';
 
-  recv(connection, result_buffer, strSize, NULL);
+  recv_s(connection, result_buffer, strSize);
 
   return result_buffer;
 }
 
-void Client::init()
+void Client::recv_s(SOCKET s, char* buf, int len, int flags)
 {
-  WSAData wsaData;
-  WORD DLLVersion = MAKEWORD(2, 1);
-  if (WSAStartup(DLLVersion, &wsaData) != 0)
-    throw runtime_error("WSAStartup failed!");
+  auto recvResult = recv(s, buf, len, flags);
+  if (recvResult == SOCKET_ERROR)
+    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+}
+
+void Client::send_s(SOCKET s, const char* buf, int len, int flags)
+{
+  auto sendResult = send(s, buf, len, flags);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
