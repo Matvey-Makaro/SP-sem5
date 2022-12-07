@@ -6,6 +6,11 @@ enum PacketType
   PT_ClientName,
   PT_ReceiverName,
   PT_ChatMessage,
+  PT_MessageWithReceiverName,
+  PT_ClientGetNewMessages,
+  PT_MessageWithSenderName,
+  PT_StartSendClientMessages,
+  PT_FinishSendClientMessages,
 };
 
 enum ServerAnswers
@@ -36,6 +41,8 @@ private:
   PacketType getPacketType();
   void sendAnswer(ClientAnswers answer);
   ServerAnswers getServerAnswer();
+  void sendString(const std::string& str);
+  std::string getString();
 
 private:
   SOCKADDR_IN addr;

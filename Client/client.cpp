@@ -39,9 +39,7 @@ void Client::mainLoop()
     string name;
     getline(cin, name);
     sendPacketType(PT_ClientName);
-    int nameSize = name.size();
-    send(connection, reinterpret_cast<const char*>(&nameSize), sizeof(nameSize), NULL);
-    send(connection, name.c_str(), nameSize, NULL);
+    sendString(name);
 
     ServerAnswers answer = getServerAnswer();
     if (answer == SA_OK)
@@ -54,6 +52,69 @@ void Client::mainLoop()
     else if (answer == SA_ERROR_CLIENT_NAME_EXPECTED)
       throw runtime_error("Client name expected!");
     else throw runtime_error("Unknown error!");
+  }
+
+  while (true)
+  {
+    cout << "1) Send message.\n";
+    cout << "2) Get messages.\n";
+    int answer = 0;
+    cin >> answer;
+    if (answer == 1)
+    {
+      while (true)
+      {
+        cout << "Enter receiver: ";
+        string receiver;
+        cin.get();
+        getline(cin, receiver);
+
+        sendPacketType(PT_ReceiverName);
+        sendString(receiver);
+
+        auto serverAnswer = getServerAnswer();
+        if (serverAnswer == SA_OK)
+          break;
+        else if (serverAnswer != SA_NO_SUCH_NAME)
+          throw runtime_error("Unknown sever answer");
+
+        cout << "No such user. Try again.\n";
+      }
+      
+
+      cout << "Enter message:\n";
+      string message;
+      getline(cin, message);
+      sendPacketType(PT_ChatMessage);
+      sendString(message);
+
+    }
+    else if (answer == 2)
+    {
+      sendPacketType(PT_ClientGetNewMessages);
+      auto packet_type = getPacketType();
+      if (packet_type != PT_StartSendClientMessages)
+        throw std::runtime_error("Unexpected packet type from server.");
+
+      packet_type = getPacketType();
+      cout << "New messages:" << endl;
+      while (packet_type == PT_MessageWithSenderName)
+      {
+        string sender = getString();
+        string messageBody = getString();
+
+        cout << "Sender: " << sender << '\n';
+        cout << "Body: " << messageBody << "\n\n";
+
+
+        packet_type = getPacketType();
+      }
+
+      if (packet_type != PT_FinishSendClientMessages)
+        throw std::runtime_error("Unexpected packet type from server.");
+
+    }
+    else cout << "Wrong input. Try again." << endl;
   }
 }
 
@@ -79,6 +140,38 @@ ServerAnswers Client::getServerAnswer()
   ServerAnswers answer;
   recv(connection, reinterpret_cast<char*>(&answer), sizeof(answer), NULL);
   return answer;
+}
+
+void Client::sendString(const string& str)
+{
+  int size = str.size();
+  send(connection, reinterpret_cast<const char*>(&size), sizeof(size), NULL);
+  send(connection, str.c_str(), size, NULL);
+}
+
+string Client::getString()
+{
+  constexpr int bufferSize = 1024;
+  char buffer[bufferSize];
+  int strSize = 0;
+  recv(connection, reinterpret_cast<char*>(&strSize), sizeof(strSize), NULL);
+  if (strSize <= 0)
+    throw runtime_error("Size of string <= 0.");
+
+  unique_ptr<char> dynamic_buffer;
+  char* result_buffer;
+  if (strSize >= bufferSize)
+  {
+    dynamic_buffer = unique_ptr<char>(new char[strSize + 1]);
+    result_buffer = dynamic_buffer.get();
+  }
+  else result_buffer = buffer;
+
+  result_buffer[strSize] = '\0';
+
+  recv(connection, result_buffer, strSize, NULL);
+
+  return result_buffer;
 }
 
 void Client::init()
