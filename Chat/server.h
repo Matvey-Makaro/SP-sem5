@@ -63,7 +63,8 @@ private:
   void sendPacketType(SOCKET socket, PacketType packetType);
   std::string getStringFromClient(SOCKET socket);
   void sendStringToClient(SOCKET socket, const std::string str);
-  void recv_s(SOCKET s, char* buf, int len);
+  void recv_s(SOCKET s, char* buf, int len, int flags = NULL);
+  void send_s(SOCKET s, const char* buf, int len, int flags = NULL);
 
 private:
   NameToSocket nameToSocket;
