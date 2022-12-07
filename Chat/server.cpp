@@ -224,34 +224,26 @@ void Server::clientHandler(SOCKET currConnection)
 
 void Server::sendAnswer(SOCKET socket, ServerAnswers answer)
 {
-  auto sendResult = send(socket, reinterpret_cast<const char*>(&answer), sizeof(answer), NULL);
-  if (sendResult == SOCKET_ERROR)
-    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
+  send_s(socket, reinterpret_cast<const char*>(&answer), sizeof(answer));
 }
 
 ClientAnswers Server::getClientAnswer(SOCKET socket)
 {
   ClientAnswers clientAnswer;
-  auto recvResult = recv(socket, reinterpret_cast<char*>(&clientAnswer), sizeof(clientAnswer), NULL);
-  if (recvResult == SOCKET_ERROR)
-    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+  recv_s(socket, reinterpret_cast<char*>(&clientAnswer), sizeof(clientAnswer));
   return clientAnswer;
 }
 
 PacketType Server::getPacketType(SOCKET socket)
 {
   PacketType packetType;
-  auto recvResult = recv(socket, reinterpret_cast<char*>(&packetType), sizeof(packetType), NULL);
-  if (recvResult == SOCKET_ERROR)
-    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+  recv_s(socket, reinterpret_cast<char*>(&packetType), sizeof(packetType));
   return packetType;
 }
 
 void Server::sendPacketType(SOCKET socket, PacketType packetType)
 {
-  auto sendResult = send(socket, reinterpret_cast<const char*>(&packetType), sizeof(packetType), NULL);
-  if (sendResult == SOCKET_ERROR)
-    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
+  send_s(socket, reinterpret_cast<const char*>(&packetType), sizeof(packetType));
 }
 
 std::string Server::getStringFromClient(SOCKET socket)
@@ -259,9 +251,7 @@ std::string Server::getStringFromClient(SOCKET socket)
   constexpr int bufferSize = 1024;
   char buffer[bufferSize];
   int strSize = 0;
-  auto recvResult = recv(socket, reinterpret_cast<char*>(&strSize), sizeof(strSize), NULL);
-  if (recvResult == SOCKET_ERROR)
-    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+  recv_s(socket, reinterpret_cast<char*>(&strSize), sizeof(strSize));
   if (strSize <= 0)
     throw runtime_error("Size of string <= 0.");
 
@@ -276,9 +266,7 @@ std::string Server::getStringFromClient(SOCKET socket)
 
   result_buffer[strSize] = '\0';
 
-  recvResult = recv(socket, result_buffer, strSize, NULL);
-  if (recvResult == SOCKET_ERROR)
-    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+  recv_s(socket, result_buffer, strSize);
   
   return result_buffer;
 }
@@ -286,17 +274,20 @@ std::string Server::getStringFromClient(SOCKET socket)
 void Server::sendStringToClient(SOCKET socket, const std::string str)
 {
   int size = str.size();
-  auto sendResult = send(socket, reinterpret_cast<const char*>(&size), sizeof(size), NULL);
-  if (sendResult == SOCKET_ERROR)
-    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
-  sendResult = send(socket, str.c_str(), size, NULL);
-  if (sendResult == SOCKET_ERROR)
-    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
+  send_s(socket, reinterpret_cast<const char*>(&size), sizeof(size));
+  send_s(socket, str.c_str(), size);
 }
 
-void Server::recv_s(SOCKET s, char* buf, int len)
+void Server::recv_s(SOCKET s, char* buf, int len, int flags)
 {
-  auto recvResult = recv(s, buf, len, NULL);
+  auto recvResult = recv(s, buf, len, flags);
   if (recvResult == SOCKET_ERROR)
     throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
+}
+
+void Server::send_s(SOCKET s, const char* buf, int len, int flags)
+{
+  auto sendResult = send(s, buf, len, flags);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
