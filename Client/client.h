@@ -36,6 +36,9 @@ private:
   void init();
   void fillAddr();
   void makeConnection();
+  void login();
+  void sendMessage();
+  void getMessages();
   void mainLoop();
   void sendPacketType(PacketType packetType);
   PacketType getPacketType();

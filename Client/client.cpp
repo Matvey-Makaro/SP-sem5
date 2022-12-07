@@ -39,14 +39,15 @@ void Client::makeConnection()
     throw runtime_error("Error connect!");
 }
 
-void Client::mainLoop()
+void Client::login()
 {
+  sendPacketType(PT_ClientName);
+
   while (true)
   {
     cout << "Enter your name: ";
     string name;
     getline(cin, name);
-    sendPacketType(PT_ClientName);
     sendString(name);
 
     ServerAnswers answer = getServerAnswer();
@@ -61,67 +62,77 @@ void Client::mainLoop()
       throw runtime_error("Client name expected!");
     else throw runtime_error("Unknown error!");
   }
+}
+
+void Client::sendMessage()
+{
+  sendPacketType(PT_ReceiverName);
+  while (true)
+  {
+    cout << "Enter receiver: ";
+    string receiver;
+    getline(cin, receiver);
+    cout << "Receiver " << receiver << endl;
+
+    sendString(receiver);
+
+    auto serverAnswer = getServerAnswer();
+    if (serverAnswer == SA_OK)
+      break;
+    else if (serverAnswer != SA_NO_SUCH_NAME)
+      throw runtime_error("Unknown sever answer");
+
+    cout << "No such user. Try again.\n";
+  }
+
+
+  cout << "Enter message:\n";
+  string message;
+  getline(cin, message);
+  sendPacketType(PT_ChatMessage);
+  sendString(message);
+}
+
+void Client::getMessages()
+{
+  sendPacketType(PT_ClientGetNewMessages);
+  auto packet_type = getPacketType();
+  if (packet_type != PT_StartSendClientMessages)
+    throw std::runtime_error("Unexpected packet type from server.");
+
+  packet_type = getPacketType();
+  cout << "New messages:" << endl;
+  while (packet_type == PT_MessageWithSenderName)
+  {
+    string sender = getString();
+    string messageBody = getString();
+
+    cout << "Sender: " << sender << '\n';
+    cout << "Body: " << messageBody << "\n\n";
+
+
+    packet_type = getPacketType();
+  }
+
+  if (packet_type != PT_FinishSendClientMessages)
+    throw std::runtime_error("Unexpected packet type from server.");
+}
+
+void Client::mainLoop()
+{
+  login();
 
   while (true)
   {
     cout << "1) Send message.\n";
     cout << "2) Get messages.\n";
-    int answer = 0;
+    char answer = 0;
     cin >> answer;
-    if (answer == 1)
-    {
-      while (true)
-      {
-        cout << "Enter receiver: ";
-        string receiver;
-        cin.get();
-        getline(cin, receiver);
-
-        sendPacketType(PT_ReceiverName);
-        sendString(receiver);
-
-        auto serverAnswer = getServerAnswer();
-        if (serverAnswer == SA_OK)
-          break;
-        else if (serverAnswer != SA_NO_SUCH_NAME)
-          throw runtime_error("Unknown sever answer");
-
-        cout << "No such user. Try again.\n";
-      }
-      
-
-      cout << "Enter message:\n";
-      string message;
-      getline(cin, message);
-      sendPacketType(PT_ChatMessage);
-      sendString(message);
-
-    }
-    else if (answer == 2)
-    {
-      sendPacketType(PT_ClientGetNewMessages);
-      auto packet_type = getPacketType();
-      if (packet_type != PT_StartSendClientMessages)
-        throw std::runtime_error("Unexpected packet type from server.");
-
-      packet_type = getPacketType();
-      cout << "New messages:" << endl;
-      while (packet_type == PT_MessageWithSenderName)
-      {
-        string sender = getString();
-        string messageBody = getString();
-
-        cout << "Sender: " << sender << '\n';
-        cout << "Body: " << messageBody << "\n\n";
-
-
-        packet_type = getPacketType();
-      }
-
-      if (packet_type != PT_FinishSendClientMessages)
-        throw std::runtime_error("Unexpected packet type from server.");
-
-    }
+    cin.ignore(1, '\n');
+    if (answer == '1')
+      sendMessage();
+    else if (answer == '2')
+      getMessages();
     else cout << "Wrong input. Try again." << endl;
   }
 }
