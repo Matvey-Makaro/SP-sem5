@@ -98,6 +98,10 @@ string Server::clientNameHandler(SOCKET currConnection)
       if (nameToSocket.count(name) == 0)
       {
         nameToSocket[name] = currConnection;
+        {
+          lock_guard g(receiverNameToMutexMutex);
+          receiverNameToMutex[name];
+        }
         sendAnswer(currConnection, SA_OK);
         cout << name << " connected.\n";
         return name;
@@ -130,33 +134,46 @@ string Server::receiverNameHandler(SOCKET currConnection)
 void Server::chatMessageHandler(SOCKET currConnection, string sender, const string& receiver)
 {
   string message = getStringFromClient(currConnection);
-  receiverToMessages[receiver].push_back({ move(sender), move(message) });
+
+  receiverToMessagesMutex.lock();
+  auto& messages = receiverToMessages[receiver];
+  receiverToMessagesMutex.unlock();
+
+  {
+    lock_guard g(receiverNameToMutex[receiver]);
+    messages.push_back({ move(sender), move(message) });
+  } 
 }
 
 void Server::clientGetNewMessagesHandler(SOCKET currConnection, const string& currClientName)
 {
   sendPacketType(currConnection, PT_StartSendClientMessages);
+  receiverToMessagesMutex.lock();
   auto& messages = receiverToMessages[currClientName];
+  receiverToMessagesMutex.unlock();
 
-  for (size_t i = 0; i < messages.size(); i++)
   {
-    sendPacketType(currConnection, PT_MessageWithSenderName);
+    lock_guard g(receiverNameToMutex[currClientName]);
+    for (size_t i = 0; i < messages.size(); i++)
+    {
+      sendPacketType(currConnection, PT_MessageWithSenderName);
 
-    sendStringToClient(currConnection, messages[i].sender);
-    sendStringToClient(currConnection, messages[i].body);
+      sendStringToClient(currConnection, messages[i].sender);
+      sendStringToClient(currConnection, messages[i].body);
+    }
+    messages.clear();
   }
-  messages.clear();
-
+  
   sendPacketType(currConnection, PT_FinishSendClientMessages);
 }
 
 void Server::clientHandler(SOCKET currConnection)
 {
   std::cout << "Client handler!" << std::endl;
-
+  std::string currClientName;
   try
   {
-    std::string currClientName = clientNameHandler(currConnection);
+    currClientName = clientNameHandler(currConnection);
     string receiverName;
     while (true)
     {
@@ -182,31 +199,59 @@ void Server::clientHandler(SOCKET currConnection)
   {
     cerr << ex.what() << endl;
     closesocket(currConnection);
+    if(!currClientName.empty())
+    {
+      {
+        lock_guard guard(nameToSocketMutex);
+        nameToSocket.erase(currClientName);
+      }
+      
+      {
+        lock_guard guard(receiverToMessagesMutex);
+        if (receiverToMessages.count(currClientName) != 0)
+          receiverToMessages.erase(currClientName);
+      }
+
+      {
+        lock_guard guard(receiverNameToMutexMutex);
+        if (receiverNameToMutex.count(currClientName) != 0)
+          receiverNameToMutex.erase(currClientName);
+      }
+    }
+
   }  
 }
 
 void Server::sendAnswer(SOCKET socket, ServerAnswers answer)
 {
-  send_s(socket, reinterpret_cast<const char*>(&answer), sizeof(answer));
+  auto sendResult = send(socket, reinterpret_cast<const char*>(&answer), sizeof(answer), NULL);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
 
 ClientAnswers Server::getClientAnswer(SOCKET socket)
 {
   ClientAnswers clientAnswer;
-  recv_s(socket, reinterpret_cast<char*>(&clientAnswer), sizeof(clientAnswer));
+  auto recvResult = recv(socket, reinterpret_cast<char*>(&clientAnswer), sizeof(clientAnswer), NULL);
+  if (recvResult == SOCKET_ERROR)
+    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
   return clientAnswer;
 }
 
 PacketType Server::getPacketType(SOCKET socket)
 {
   PacketType packetType;
-  recv_s(socket, reinterpret_cast<char*>(&packetType), sizeof(packetType));
+  auto recvResult = recv(socket, reinterpret_cast<char*>(&packetType), sizeof(packetType), NULL);
+  if (recvResult == SOCKET_ERROR)
+    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
   return packetType;
 }
 
 void Server::sendPacketType(SOCKET socket, PacketType packetType)
 {
-  send_s(socket, reinterpret_cast<const char*>(&packetType), sizeof(packetType));
+  auto sendResult = send(socket, reinterpret_cast<const char*>(&packetType), sizeof(packetType), NULL);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
 
 std::string Server::getStringFromClient(SOCKET socket)
@@ -214,7 +259,9 @@ std::string Server::getStringFromClient(SOCKET socket)
   constexpr int bufferSize = 1024;
   char buffer[bufferSize];
   int strSize = 0;
-  recv_s(socket, reinterpret_cast<char*>(&strSize), sizeof(strSize));
+  auto recvResult = recv(socket, reinterpret_cast<char*>(&strSize), sizeof(strSize), NULL);
+  if (recvResult == SOCKET_ERROR)
+    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
   if (strSize <= 0)
     throw runtime_error("Size of string <= 0.");
 
@@ -229,7 +276,9 @@ std::string Server::getStringFromClient(SOCKET socket)
 
   result_buffer[strSize] = '\0';
 
-  recv_s(socket, result_buffer, strSize);
+  recvResult = recv(socket, result_buffer, strSize, NULL);
+  if (recvResult == SOCKET_ERROR)
+    throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
   
   return result_buffer;
 }
@@ -237,20 +286,17 @@ std::string Server::getStringFromClient(SOCKET socket)
 void Server::sendStringToClient(SOCKET socket, const std::string str)
 {
   int size = str.size();
-  send_s(socket, reinterpret_cast<const char*>(&size), sizeof(size));
-  send_s(socket, str.c_str(), size);
+  auto sendResult = send(socket, reinterpret_cast<const char*>(&size), sizeof(size), NULL);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
+  sendResult = send(socket, str.c_str(), size, NULL);
+  if (sendResult == SOCKET_ERROR)
+    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
 
-void Server::recv_s(SOCKET s, char* buf, int len, int flags)
+void Server::recv_s(SOCKET s, char* buf, int len)
 {
   auto recvResult = recv(s, buf, len, NULL);
   if (recvResult == SOCKET_ERROR)
     throw runtime_error("Recv error: " + to_string(WSAGetLastError()));
-}
-
-void Server::send_s(SOCKET s, const char* buf, int len, int flags)
-{
-  auto sendResult = send(s, buf, len, NULL);
-  if (sendResult == SOCKET_ERROR)
-    throw runtime_error("Send error: " + to_string(WSAGetLastError()));
 }
