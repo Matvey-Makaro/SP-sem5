@@ -1,5 +1,6 @@
 #include <WinSock2.h>
 #include <string>
+#include <mutex>
 
 enum PacketType
 {
@@ -39,6 +40,7 @@ private:
   void login();
   void sendMessage();
   void getMessages();
+  void requestMessages(int interaval);
   void mainLoop();
   void sendPacketType(PacketType packetType);
   PacketType getPacketType();
@@ -52,4 +54,7 @@ private:
 private:
   SOCKADDR_IN addr;
   SOCKET connection;
+  std::mutex server_mutex;
+  bool is_end = false;
+  bool is_authorize = false;
 };

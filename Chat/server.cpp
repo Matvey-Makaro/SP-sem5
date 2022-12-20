@@ -88,7 +88,6 @@ string Server::clientNameHandler(SOCKET currConnection)
     throw runtime_error("Client name expected for SOCKET: " + to_string(currConnection));
   }
 
-  
   while (true)
   {
     std::string name = getStringFromClient(currConnection);
@@ -114,21 +113,17 @@ string Server::clientNameHandler(SOCKET currConnection)
 
 string Server::receiverNameHandler(SOCKET currConnection)
 {
-  while (true)
+  string name = getStringFromClient(currConnection);
   {
-    string name = getStringFromClient(currConnection);
-
+    lock_guard<mutex> g(nameToSocketMutex);
+    if (nameToSocket.count(name) != 0)
     {
-      lock_guard<mutex> g(nameToSocketMutex);
-      if (nameToSocket.count(name) != 0)
-      {
-        sendAnswer(currConnection, SA_OK);
-        return name;
-      }
+      sendAnswer(currConnection, SA_OK);
+      return name;
     }
-
-    sendAnswer(currConnection, SA_NO_SUCH_NAME);
   }
+  sendAnswer(currConnection, SA_NO_SUCH_NAME);
+  return "";
 }
 
 void Server::chatMessageHandler(SOCKET currConnection, string sender, const string& receiver)

@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <exception>
+#include <thread>
 
 using namespace std;
 
@@ -14,7 +15,16 @@ void Client::start()
   fillAddr();
   makeConnection();
   cout << "Connected!\n";
+
+  constexpr int interval = 2000;
+  thread requestMessagesThread([this, interval]() {
+    requestMessages(interval);
+    });
+  requestMessagesThread.detach();
+
   mainLoop();
+
+  is_end = true;
 }
 
 void Client::init()
@@ -41,8 +51,8 @@ void Client::makeConnection()
 
 void Client::login()
 {
+  lock_guard g(server_mutex);
   sendPacketType(PT_ClientName);
-
   while (true)
   {
     cout << "Enter your name: ";
@@ -54,7 +64,8 @@ void Client::login()
     if (answer == SA_OK)
     {
       cout << "Login completed successfully." << endl;
-      break;
+      is_authorize = true;
+      return;
     }
     else if (answer == SA_SUCH_NAME_TAKEN)
       cout << "This name is already taken." << endl;
@@ -66,17 +77,21 @@ void Client::login()
 
 void Client::sendMessage()
 {
-  sendPacketType(PT_ReceiverName);
   while (true)
   {
     cout << "Enter receiver: ";
     string receiver;
     getline(cin, receiver);
+
+    unique_lock lock(server_mutex);
+    sendPacketType(PT_ReceiverName);
     cout << "Receiver " << receiver << endl;
 
     sendString(receiver);
 
     auto serverAnswer = getServerAnswer();
+    lock.unlock();
+
     if (serverAnswer == SA_OK)
       break;
     else if (serverAnswer != SA_NO_SUCH_NAME)
@@ -89,27 +104,38 @@ void Client::sendMessage()
   cout << "Enter message:\n";
   string message;
   getline(cin, message);
-  sendPacketType(PT_ChatMessage);
-  sendString(message);
+  {
+    lock_guard g(server_mutex);
+    sendPacketType(PT_ChatMessage);
+    sendString(message);
+  }
+  
 }
 
 void Client::getMessages()
 {
+  lock_guard g(server_mutex);
+  bool is_new_messages_print = true;
   sendPacketType(PT_ClientGetNewMessages);
   auto packet_type = getPacketType();
   if (packet_type != PT_StartSendClientMessages)
     throw std::runtime_error("Unexpected packet type from server.");
 
   packet_type = getPacketType();
-  cout << "New messages:" << endl;
   while (packet_type == PT_MessageWithSenderName)
   {
+
     string sender = getString();
     string messageBody = getString();
 
+    if (is_new_messages_print)
+    {
+      cout << "\nNew messages:" << endl;
+      is_new_messages_print = false;
+    }
+
     cout << "Sender: " << sender << '\n';
     cout << "Body: " << messageBody << "\n\n";
-
 
     packet_type = getPacketType();
   }
@@ -118,22 +144,26 @@ void Client::getMessages()
     throw std::runtime_error("Unexpected packet type from server.");
 }
 
+void Client::requestMessages(int interaval)
+{
+  while (!is_authorize)
+    Sleep(100);
+
+  while (!is_end)
+  {
+    getMessages();
+    Sleep(interaval);
+  }
+}
+
 void Client::mainLoop()
 {
   login();
 
   while (true)
   {
-    cout << "1) Send message.\n";
-    cout << "2) Get messages.\n";
-    char answer = 0;
-    cin >> answer;
-    cin.ignore(1, '\n');
-    if (answer == '1')
-      sendMessage();
-    else if (answer == '2')
-      getMessages();
-    else cout << "Wrong input. Try again." << endl;
+    sendMessage();
+    Sleep(10);
   }
 }
 
